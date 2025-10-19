@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Dimensions,
@@ -6,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 
@@ -19,7 +21,7 @@ const orderData = [
     customerName: 'Shubham Mehra',
     phone: '9617373159',
     address: 'A1206',
-    image: require('../../assets/v1/cardImage.png'),
+    image: require('../assets/v1/cardImage.png'),
   },
   {
     id: 2,
@@ -27,7 +29,7 @@ const orderData = [
     customerName: 'John Doe',
     phone: '9876543210',
     address: 'B2304',
-    image: require('../../assets/v1/cardImage.png'),
+    image: require('../assets/v1/cardImage.png'),
   },
   {
     id: 3,
@@ -35,7 +37,7 @@ const orderData = [
     customerName: 'Jane Smith',
     phone: '8765432109',
     address: 'C1205',
-    image: require('../../assets/v1/cardImage.png'),
+    image: require('../assets/v1/cardImage.png'),
   },
 ];
 
@@ -66,7 +68,7 @@ export default function HomeScreen() {
         {/* Header Section with Girl Image */}
         <View style={styles.headerContainer}>
           <Image
-            source={require('../../assets/v1/headerGirlImage.png')}
+            source={require('../assets/v1/headerGirlImage.png')}
             style={styles.headerImage}
             resizeMode="cover"
           />
@@ -77,7 +79,7 @@ export default function HomeScreen() {
           {/* Super Crunch Logo */}
           <View style={styles.logoContainer}>
             <Image
-              source={require('../../assets/v1/splash.png')}
+              source={require('../assets/v1/splash.png')}
               style={styles.logo}
             />
           </View>
@@ -98,7 +100,11 @@ export default function HomeScreen() {
               contentContainerStyle={styles.carouselContent}
             >
               {orderData.map((order, index) => (
-                <View key={order.id} style={styles.orderCard}>
+                <TouchableOpacity 
+                  key={order.id} 
+                  style={styles.orderCard}
+                  onPress={() => router.push('/order-details')}
+                >
                   <Image
                     source={order.image}
                     style={styles.cardImage}
@@ -112,12 +118,12 @@ export default function HomeScreen() {
                   </View>
                   <View style={styles.arrowContainer}>
                     <Image
-                      source={require('../../assets/v1/arrow.png')}
+                      source={require('../assets/v1/arrow.png')}
                       resizeMode="cover"
                       style={styles.arrow}
                     />
                   </View>
-                </View>
+                </TouchableOpacity>
               ))}
             </ScrollView>
 

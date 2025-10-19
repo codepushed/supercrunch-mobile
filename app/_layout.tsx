@@ -7,7 +7,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export const unstable_settings = {
   // Ensures that reloading on `/modal` keeps a back button present.
-  initialRouteName: '(tabs)',
+  initialRouteName: 'index',
 };
 
 export default function RootLayout() {
@@ -18,7 +18,8 @@ export default function RootLayout() {
       <View style={{ flex: 1 }}>
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
         <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="order-details" options={{ headerShown: false }} />
         </Stack>
       </View>
     </ThemeProvider>
