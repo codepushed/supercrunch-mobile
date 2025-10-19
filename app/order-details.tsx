@@ -1,18 +1,23 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import {
-    Image,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import ConfettiCannon from 'react-native-confetti-cannon';
 
 export default function OrderDetailsScreen() {
   const params = useLocalSearchParams();
+  const [deliveryModalVisible, setDeliveryModalVisible] = useState(false);
+  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
+  const confettiRef = useRef<any>(null);
   
   // Mock data - in a real app, you'd fetch this based on the order ID
   const orderData = {
@@ -33,7 +38,7 @@ export default function OrderDetailsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 
@@ -45,7 +50,11 @@ export default function OrderDetailsScreen() {
         <Text style={styles.headerTitle}>Order Details</Text>
       </View>
 
-      <ScrollView style={styles.content}>
+      <ScrollView 
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         {/* Decorative Image */}
         <View style={styles.imageContainer}>
           <Image
@@ -108,13 +117,98 @@ export default function OrderDetailsScreen() {
 
       {/* Action Buttons */}
       <View style={styles.actionButtons}>
-        <TouchableOpacity style={styles.deliveredButton}>
+        <TouchableOpacity 
+          style={styles.deliveredButton}
+          onPress={() => setDeliveryModalVisible(true)}
+        >
           <Text style={styles.deliveredButtonText}>Delivered ?</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.paymentButton}>
+        <TouchableOpacity 
+          style={styles.paymentButton}
+          onPress={() => setPaymentModalVisible(true)}
+        >
           <Text style={styles.paymentButtonText}>Take Payment</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Delivery Confirmation Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={deliveryModalVisible}
+        onRequestClose={() => setDeliveryModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.deliveryModal}>
+            <TouchableOpacity 
+              style={styles.deliveredSuccessButton}
+              onPress={() => {
+                setDeliveryModalVisible(false);
+                confettiRef.current?.start();
+                setTimeout(() => router.back(), 2000);
+              }}
+            >
+              <Text style={styles.deliveredSuccessText}>Delivered Successfully</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.cancelledButton}
+              onPress={() => setDeliveryModalVisible(false)}
+            >
+              <Text style={styles.cancelledText}>Cancelled</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Payment QR Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={paymentModalVisible}
+        onRequestClose={() => setPaymentModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.paymentModal}>
+            <TouchableOpacity 
+              style={styles.closeButton}
+              onPress={() => setPaymentModalVisible(false)}
+            >
+              <Ionicons name="close" size={24} color="#666" />
+            </TouchableOpacity>
+            
+            <Text style={styles.paymentTitle}>Shubham - ICICI</Text>
+            
+            {/* QR Code Placeholder */}
+            <View style={styles.qrContainer}>
+             <Image
+              source={require('../assets/v1/qr.png')}
+              style={styles.qrCode}
+              resizeMode="cover"
+            />
+            </View>
+            
+       
+              <Text style={styles.copyButtonText}>Copy UPI ID</Text>
+            
+            
+            {/* Carousel dots */}
+            <View style={styles.modalDotsContainer}>
+              <View style={[styles.modalDot, styles.activeModalDot]} />
+              <View style={[styles.modalDot, styles.inactiveModalDot]} />
+              <View style={[styles.modalDot, styles.inactiveModalDot]} />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Confetti Animation */}
+      <ConfettiCannon
+        ref={confettiRef}
+        count={200}
+        origin={{x: -10, y: 0}}
+        autoStart={false}
+        fadeOut={true}
+      />
     </SafeAreaView>
   );
 }
@@ -144,6 +238,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
+  },
+  scrollContent: {
+    paddingBottom: 120, // Space for action buttons
   },
   imageContainer: {
     paddingHorizontal: 20,
@@ -266,7 +363,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
   },
   deliveredButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#1D6A96',
     paddingVertical: 15,
     borderRadius: 10,
     alignItems: 'center',
@@ -287,5 +384,105 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  deliveryModal: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 40,
+  },
+  deliveredSuccessButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  deliveredSuccessText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cancelledButton: {
+    backgroundColor: '#F44336',
+    paddingVertical: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  cancelledText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  paymentModal: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 40,
+    alignItems: 'center',
+  },
+  closeButton: {
+    alignSelf: 'flex-end',
+    padding: 10,
+  },
+  paymentTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 20,
+  },
+  qrContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  qrCode: {
+    width: 300,
+    height: 300,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 10,
+  },
+  qrText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '600',
+  },
+  copyButton: {
+    backgroundColor: '#f0f0f0',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+  copyButtonText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 20,
+  },
+  modalDotsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginHorizontal: 4,
+  },
+  activeModalDot: {
+    backgroundColor: '#FFBE0C',
+  },
+  inactiveModalDot: {
+    backgroundColor: '#E0E0E0',
   },
 });

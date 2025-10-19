@@ -3,13 +3,13 @@ import React, { useState } from 'react';
 import {
   Dimensions,
   Image,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
@@ -63,8 +63,12 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false}
+        bounces={true}
+        alwaysBounceVertical={true}
+      >
         {/* Header Section with Girl Image */}
         <View style={styles.headerContainer}>
           <Image
@@ -167,13 +171,15 @@ const styles = StyleSheet.create({
     marginTop: -30,
     paddingHorizontal: 20,
     paddingTop: 30,
-    minHeight: 600,
+    minHeight: 800, // Increased height to ensure scrolling
+    paddingBottom: 50,
   },
   logoContainer: {
     alignItems: 'center',
     // marginBottom: 40,
     width: '100%',
-    height: '30%',
+    height: 200, // Fixed height instead of percentage
+    marginBottom: 20,
   },
   superText: {
     fontSize: 48,
