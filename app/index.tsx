@@ -1,8 +1,13 @@
+import { Order } from '@/lib/supabase';
+import { fetchPendingOrders } from '@/services/orders';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Dimensions,
   Image,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,36 +18,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
-// Static data for order cards
-const orderData = [
-  {
-    id: 1,
-    orderNo: '#187832',
-    customerName: 'Shubham Mehra',
-    phone: '9617373159',
-    address: 'A1206',
-    image: require('../assets/v1/cardImage.png'),
-  },
-  {
-    id: 2,
-    orderNo: '#187833',
-    customerName: 'John Doe',
-    phone: '9876543210',
-    address: 'B2304',
-    image: require('../assets/v1/cardImage.png'),
-  },
-  {
-    id: 3,
-    orderNo: '#187834',
-    customerName: 'Jane Smith',
-    phone: '8765432109',
-    address: 'C1205',
-    image: require('../assets/v1/cardImage.png'),
-  },
-];
 
 export default function HomeScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleScroll = (event: any) => {
     const scrollPosition = event.nativeEvent.contentOffset.x;
@@ -62,12 +44,58 @@ export default function HomeScreen() {
     return now.toLocaleDateString('en-US', options);
   };
 
+  // Fetch orders from Supabase
+  const loadOrders = async () => {
+    try {
+      console.log('🔄 Starting to fetch orders from Supabase...');
+      setError(null);
+      const { data, error: fetchError } = await fetchPendingOrders();
+      
+      console.log('📦 Fetch result:', { data, error: fetchError });
+      
+      if (fetchError) {
+        console.error('❌ Error loading orders:', fetchError);
+        setError('Failed to load orders');
+        return;
+      }
+
+      if (data) {
+        console.log('✅ Orders loaded successfully:', data.length, 'orders');
+        console.log('📋 First order:', data[0]);
+        setOrders(data);
+      } else {
+        console.log('⚠️ No data returned from Supabase');
+      }
+    } catch (err) {
+      console.error('💥 Exception loading orders:', err);
+      setError('Failed to load orders');
+    } finally {
+      console.log('🏁 Finished loading orders');
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // Load orders on mount
+  useEffect(() => {
+    loadOrders();
+  }, []);
+
+  // Handle pull-to-refresh
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadOrders();
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <ScrollView 
         showsVerticalScrollIndicator={false}
         bounces={true}
         alwaysBounceVertical={true}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       >
         {/* Header Section with Girl Image */}
         <View style={styles.headerContainer}>
@@ -93,56 +121,96 @@ export default function HomeScreen() {
             <Text style={styles.checkOrdersText}>Check your Orders</Text>
             <Text style={styles.dateTimeText}>{getCurrentDateTime()}</Text>
 
-            {/* Order Cards Carousel */}
-            <ScrollView
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              onScroll={handleScroll}
-              scrollEventThrottle={16}
-              style={styles.carouselContainer}
-              contentContainerStyle={styles.carouselContent}
-            >
-              {orderData.map((order, index) => (
-                <TouchableOpacity 
-                  key={order.id} 
-                  style={styles.orderCard}
-                  onPress={() => router.push('/order-details')}
-                >
-                  <Image
-                    source={order.image}
-                    style={styles.cardImage}
-                    resizeMode="cover"
-                  />
-                  <View style={styles.orderDetails}>
-                    <Text style={styles.orderNumber}>Order no: {order.orderNo}</Text>
-                    <Text style={styles.customerName}>{order.customerName}</Text>
-                    <Text style={styles.phoneNumber}>{order.phone}</Text>
-                    <Text style={styles.address}>{order.address}</Text>
-                  </View>
-                  <View style={styles.arrowContainer}>
-                    <Image
-                      source={require('../assets/v1/arrow.png')}
-                      resizeMode="cover"
-                      style={styles.arrow}
-                    />
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+            {/* Loading State */}
+            {loading && (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#FFBE0C" />
+                <Text style={styles.loadingText}>Loading orders...</Text>
+              </View>
+            )}
 
-            {/* Carousel Dots */}
-            <View style={styles.dotsContainer}>
-              {orderData.map((_, index) => (
-                <View
-                  key={index}
-                  style={[
-                    styles.dot,
-                    currentIndex === index ? styles.activeDot : styles.inactiveDot,
-                  ]}
-                />
-              ))}
-            </View>
+            {/* Error State */}
+            {error && !loading && (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.errorText}>⚠️ {error}</Text>
+                <TouchableOpacity onPress={loadOrders} style={styles.retryButton}>
+                  <Text style={styles.retryButtonText}>Retry</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Empty State */}
+            {!loading && !error && orders.length === 0 && (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>No pending orders</Text>
+                <Text style={styles.emptySubtext}>Pull down to refresh</Text>
+              </View>
+            )}
+
+            {/* Order Cards Carousel */}
+            {!loading && !error && orders.length > 0 && (
+              <>
+                <ScrollView
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  onScroll={handleScroll}
+                  scrollEventThrottle={16}
+                  style={styles.carouselContainer}
+                  contentContainerStyle={styles.carouselContent}
+                >
+                  {orders.map((order, index) => (
+                    <TouchableOpacity 
+                      key={order.id} 
+                      style={styles.orderCard}
+                      onPress={() => router.push({
+                        pathname: '/order-details',
+                        params: { orderId: order.id }
+                      })}
+                    >
+                      <Image
+                        source={require('../assets/v1/cardImage.png')}
+                        style={styles.cardImage}
+                        resizeMode="cover"
+                      />
+                      <View style={styles.orderDetails}>
+                        <Text style={styles.orderNumber}>{order.order_number}</Text>
+                        <Text style={styles.customerName}>{order.customer_name}</Text>
+                        <Text style={styles.phoneNumber}>{order.customer_phone}</Text>
+                        <Text style={styles.address}>{order.customer_address}</Text>
+                        <Text style={styles.totalAmount}>₹{order.total}</Text>
+                      </View>
+                      {order.status === 'delivered' ? (
+                        <View style={styles.deliveredBadge}>
+                          <Ionicons name="checkmark-circle" size={40} color="#4CAF50" />
+                        </View>
+                      ) : (
+                        <View style={styles.arrowContainer}>
+                          <Image
+                            source={require('../assets/v1/arrow.png')}
+                            resizeMode="cover"
+                            style={styles.arrow}
+                          />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+
+                {/* Carousel Dots */}
+                <View style={styles.dotsContainer}>
+                  {orders.map((_, index) => (
+                    <View
+                      key={index}
+                      style={[
+                        styles.dot,
+                        currentIndex === index ? styles.activeDot : styles.inactiveDot,
+                      ]}
+                    />
+                  ))}
+                </View>
+              </>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -273,6 +341,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  deliveredBadge: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   dotsContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -290,5 +365,54 @@ const styles = StyleSheet.create({
   },
   inactiveDot: {
     backgroundColor: '#E0E0E0',
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#F44336',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: '#FFBE0C',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
+  },
+  totalAmount: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFBE0C',
+    marginTop: 8,
   },
 });

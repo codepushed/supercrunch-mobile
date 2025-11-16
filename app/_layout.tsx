@@ -12,11 +12,12 @@ export const unstable_settings = {
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-
+  
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <View style={{ flex: 1 }}>
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+        
         <Stack>
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="order-details" options={{ headerShown: false }} />
@@ -25,3 +26,4 @@ export default function RootLayout() {
     </ThemeProvider>
   );
 }
+ 

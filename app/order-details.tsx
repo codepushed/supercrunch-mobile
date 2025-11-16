@@ -1,41 +1,262 @@
+import { Order, formatOrderStatus, getStatusColor } from '@/lib/supabase';
+import { fetchOrderById, updateOrderStatus } from '@/services/orders';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
+  Linking,
   Modal,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import ConfettiCannon from 'react-native-confetti-cannon';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Asset } from 'expo-asset';
+import Share, { ShareSingleOptions, Social } from 'react-native-share';
+
+type WhatsAppShareOptions = ShareSingleOptions & { whatsAppNumber?: string };
 
 export default function OrderDetailsScreen() {
   const params = useLocalSearchParams();
   const [deliveryModalVisible, setDeliveryModalVisible] = useState(false);
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
+  const [menuModalVisible, setMenuModalVisible] = useState(false);
+  const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [qrIndex, setQrIndex] = useState(0);
   const confettiRef = useRef<any>(null);
-  
-  // Mock data - in a real app, you'd fetch this based on the order ID
-  const orderData = {
-    id: '#12345',
-    date: 'Monday 13 June',
-    time: '12:03 PM',
-    status: 'Delivered',
-    customerName: 'Shubham Mehra',
-    phone: '9617373159',
-    address: 'A1206',
-    paymentMethod: 'UPI 9617373159@ybl',
-    items: [
-      { name: 'White Sauce Pasta x2', price: 79 },
-      { name: 'Red Sauce Pasta x2', price: 89 },
-    ],
-    total: 89,
-    deliveryInstructions: "Don't press the bell, Just text.",
+  const qrScrollRef = useRef<ScrollView | null>(null);
+
+  const qrOptions = [
+    {
+      label: 'BOI',
+      source: require('../assets/qr/boi.jpg'),
+    },
+    {
+      label: 'ICICI',
+      source: require('../assets/qr/icici.jpg'),
+    },
+  ];
+
+  const normalizePhoneNumber = (phoneNumber: string) => {
+    const digitsOnly = phoneNumber.replace(/\D/g, '');
+    if (digitsOnly.startsWith('91')) {
+      return digitsOnly;
+    }
+    if (digitsOnly.length === 10) {
+      return `91${digitsOnly}`;
+    }
+    return digitsOnly;
   };
+
+  const shareImageWithMessage = async (
+    phoneNumber: string,
+    message: string,
+    imageAsset: number,
+  ) => {
+    try {
+      const asset = Asset.fromModule(imageAsset);
+      if (!asset.localUri) {
+        await asset.downloadAsync();
+      }
+      const assetUri = asset.localUri ?? asset.uri;
+      if (!assetUri) {
+        throw new Error('Image asset unavailable');
+      }
+
+      const normalizedNumber = normalizePhoneNumber(phoneNumber);
+
+      const shareOptions: WhatsAppShareOptions = {
+        social: Social.Whatsapp,
+        message,
+        url: assetUri,
+        whatsAppNumber: normalizedNumber,
+        type: 'image/*',
+      };
+
+      if (Platform.OS === 'ios' && assetUri.startsWith('file://')) {
+        shareOptions.url = assetUri;
+      }
+
+      await Share.shareSingle(shareOptions);
+    } catch (error) {
+      console.error('Error sharing image via WhatsApp:', error);
+      alert('Failed to share image via WhatsApp. Sending text message instead.');
+      await sendWhatsAppMessage(phoneNumber, message);
+    }
+  };
+
+  // WhatsApp sharing functions
+  const sendWhatsAppMessage = async (phoneNumber: string, message: string) => {
+    try {
+      const normalizedNumber = normalizePhoneNumber(phoneNumber);
+      const url = `whatsapp://send?phone=${normalizedNumber}&text=${encodeURIComponent(message)}`;
+      const canOpen = await Linking.canOpenURL(url);
+
+      if (canOpen) {
+        await Linking.openURL(url);
+      } else {
+        const webUrl = `https://wa.me/${normalizedNumber}?text=${encodeURIComponent(message)}`;
+        await Linking.openURL(webUrl);
+      }
+    } catch (error) {
+      console.error('Error sharing via WhatsApp:', error);
+      alert('Failed to share via WhatsApp');
+    }
+  };
+
+  const handleConfirmOrder = async () => {
+    if (!order) return;
+    setMenuModalVisible(false);
+    const message = "Order locked in! We've started prepping your yummy meal";
+    const imageAsset = require('../assets/quickies/confirm.png');
+    await shareImageWithMessage(order.customer_phone, message, imageAsset);
+  };
+
+  const handleSendReview = async () => {
+    if (!order) return;
+    setMenuModalVisible(false);
+    const message = "Your feedback is the secret ingredient that helps us get better. Tell us how your food was!";
+    const imageAsset = require('../assets/quickies/review.jpg');
+    await shareImageWithMessage(order.customer_phone, message, imageAsset);
+  };
+
+  const handleAlmostThere = () => {
+    if (!order) return;
+    setMenuModalVisible(false);
+    const message = "Your food is just a few bites away from reaching you";
+    sendWhatsAppMessage(order.customer_phone, message);
+  };
+  
+  // Fetch order data from Supabase
+  useEffect(() => {
+    const loadOrder = async () => {
+      if (!params.orderId) {
+        setError('Order ID not provided');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const { data, error: fetchError } = await fetchOrderById(params.orderId as string);
+        
+        if (fetchError) {
+          console.error('Error loading order:', fetchError);
+          setError('Failed to load order');
+          return;
+        }
+
+        if (data) {
+          setOrder(data);
+        } else {
+          setError('Order not found');
+        }
+      } catch (err) {
+        console.error('Exception loading order:', err);
+        setError('Failed to load order');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadOrder();
+  }, [params.orderId]);
+
+  // Handle order delivery
+  const handleDelivered = async () => {
+    if (!order) return;
+
+    try {
+      const { error } = await updateOrderStatus(order.id, 'delivered');
+      
+      if (error) {
+        console.error('Error updating order:', error);
+        alert('Failed to update order status');
+        return;
+      }
+
+      // Update local order state to reflect delivered status
+      setOrder({ ...order, status: 'delivered' });
+      setDeliveryModalVisible(false);
+      confettiRef.current?.start();
+      setTimeout(() => router.back(), 2000);
+    } catch (err) {
+      console.error('Exception updating order:', err);
+      alert('Failed to update order status');
+    }
+  };
+
+  // Format date and time
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const dateOptions: Intl.DateTimeFormatOptions = {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    };
+    const timeOptions: Intl.DateTimeFormatOptions = {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    };
+    return {
+      date: date.toLocaleDateString('en-US', dateOptions),
+      time: date.toLocaleTimeString('en-US', timeOptions),
+    };
+  };
+
+  // Loading state
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <Ionicons name="chevron-back" size={24} color="white" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Order Details</Text>
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#FFBE0C" />
+          <Text style={styles.loadingText}>Loading order...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Error state
+  if (error || !order) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <Ionicons name="chevron-back" size={24} color="white" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Order Details</Text>
+        </View>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>⚠️ {error || 'Order not found'}</Text>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButtonStyle}>
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const { date, time } = formatDateTime(order.created_at);
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
@@ -48,6 +269,12 @@ export default function OrderDetailsScreen() {
           <Ionicons name="chevron-back" size={24} color="white" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Order Details</Text>
+        <TouchableOpacity 
+          style={styles.menuButton}
+          onPress={() => setMenuModalVisible(true)}
+        >
+          <Ionicons name="ellipsis-vertical" size={24} color="white" />
+        </TouchableOpacity>
       </View>
 
       <ScrollView 
@@ -68,50 +295,72 @@ export default function OrderDetailsScreen() {
         <View style={styles.orderInfoContainer}>
           <View style={styles.orderHeader}>
             <View>
-              <Text style={styles.orderId}>Order Id {orderData.id}</Text>
-              <Text style={styles.orderDate}>{orderData.date}</Text>
-              <Text style={styles.orderTime}>{orderData.time}</Text>
+              <Text style={styles.orderId}>{order.order_number}</Text>
+              <Text style={styles.orderDate}>{date}</Text>
+              <Text style={styles.orderTime}>{time}</Text>
             </View>
             <View style={styles.statusContainer}>
-              <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
-              <Text style={styles.statusText}>{orderData.status}</Text>
+              <Ionicons 
+                name={order.status === 'delivered' ? 'checkmark-circle' : 'time-outline'} 
+                size={20} 
+                color={getStatusColor(order.status)} 
+              />
+              <Text style={[styles.statusText, { color: getStatusColor(order.status) }]}>
+                {formatOrderStatus(order.status)}
+              </Text>
             </View>
           </View>
 
           {/* Delivered To Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Delivered to</Text>
-            <Text style={styles.customerName}>{orderData.customerName}</Text>
-            <Text style={styles.customerInfo}>{orderData.phone}</Text>
-            <Text style={styles.customerInfo}>{orderData.address}</Text>
+            <Text style={styles.customerName}>{order.customer_name}</Text>
+            <Text style={styles.customerInfo}>{order.customer_phone}</Text>
+            <Text style={styles.customerInfo}>{order.customer_address}</Text>
           </View>
 
           {/* Payment Method Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Payment Method</Text>
-            <Text style={styles.paymentMethod}>{orderData.paymentMethod}</Text>
+            <Text style={styles.paymentMethod}>Cash on Delivery</Text>
           </View>
 
           {/* Items Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>ITEMS</Text>
-            {orderData.items.map((item, index) => (
+            {order.items.map((item, index) => (
               <View key={index} style={styles.itemRow}>
-                <Text style={styles.itemName}>{item.name}</Text>
-                <Text style={styles.itemPrice}>{item.price}</Text>
+                <Text style={styles.itemName}>{item.name} x{item.quantity}</Text>
+                <Text style={styles.itemPrice}>₹{item.price}</Text>
               </View>
             ))}
+            {order.discount > 0 && (
+              <View style={styles.itemRow}>
+                <Text style={styles.itemName}>Discount</Text>
+                <Text style={[styles.itemPrice, { color: '#4CAF50' }]}>-₹{order.discount}</Text>
+              </View>
+            )}
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total</Text>
-              <Text style={styles.totalPrice}>{orderData.total}</Text>
+              <Text style={styles.totalPrice}>₹{order.total}</Text>
             </View>
           </View>
 
           {/* Delivery Instructions */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Delivery Instructions</Text>
-            <Text style={styles.instructions}>{orderData.deliveryInstructions}</Text>
-          </View>
+          {order.delivery_instructions && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Delivery Instructions</Text>
+              <Text style={styles.instructions}>{order.delivery_instructions}</Text>
+            </View>
+          )}
+
+          {/* Cooking Instructions */}
+          {order.cooking_instructions && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Cooking Instructions</Text>
+              <Text style={styles.instructions}>{order.cooking_instructions}</Text>
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -142,11 +391,7 @@ export default function OrderDetailsScreen() {
           <View style={styles.deliveryModal}>
             <TouchableOpacity 
               style={styles.deliveredSuccessButton}
-              onPress={() => {
-                setDeliveryModalVisible(false);
-                confettiRef.current?.start();
-                setTimeout(() => router.back(), 2000);
-              }}
+              onPress={handleDelivered}
             >
               <Text style={styles.deliveredSuccessText}>Delivered Successfully</Text>
             </TouchableOpacity>
@@ -176,27 +421,93 @@ export default function OrderDetailsScreen() {
               <Ionicons name="close" size={24} color="#666" />
             </TouchableOpacity>
             
-            <Text style={styles.paymentTitle}>Shubham - ICICI</Text>
-            
-            {/* QR Code Placeholder */}
+            <Text style={styles.paymentTitle}>Payment QR Codes</Text>
+
             <View style={styles.qrContainer}>
-             <Image
-              source={require('../assets/v1/qr.png')}
-              style={styles.qrCode}
-              resizeMode="cover"
-            />
+              <ScrollView
+                ref={qrScrollRef}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                style={styles.qrScrollView}
+                contentContainerStyle={styles.qrScrollContent}
+                onMomentumScrollEnd={(event) => {
+                  const { contentOffset, layoutMeasurement } = event.nativeEvent;
+                  const nextIndex = Math.round(contentOffset.x / layoutMeasurement.width);
+                  setQrIndex(nextIndex);
+                }}
+              >
+                {qrOptions.map((qr) => (
+                  <View key={qr.label} style={styles.qrSlide}>
+                    <Text style={styles.qrLabel}>{qr.label}</Text>
+                    <Image
+                      source={qr.source}
+                      style={styles.qrCode}
+                      resizeMode="contain"
+                    />
+                  </View>
+                ))}
+              </ScrollView>
             </View>
-            
-       
-              <Text style={styles.copyButtonText}>Copy UPI ID</Text>
-            
-            
-            {/* Carousel dots */}
+
+            {/* <Text style={styles.copyButtonText}>Copy UPI ID</Text> */}
+
             <View style={styles.modalDotsContainer}>
-              <View style={[styles.modalDot, styles.activeModalDot]} />
-              <View style={[styles.modalDot, styles.inactiveModalDot]} />
-              <View style={[styles.modalDot, styles.inactiveModalDot]} />
+              {qrOptions.map((_, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.modalDot,
+                    qrIndex === index ? styles.activeModalDot : styles.inactiveModalDot,
+                  ]}
+                />
+              ))}
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Menu Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={menuModalVisible}
+        onRequestClose={() => setMenuModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.menuModal}>
+            <TouchableOpacity 
+              style={styles.closeButton}
+              onPress={() => setMenuModalVisible(false)}
+            >
+              <Ionicons name="close" size={24} color="#666" />
+            </TouchableOpacity>
+            
+            <Text style={styles.menuTitle}>Quick Actions</Text>
+            
+            <TouchableOpacity 
+              style={styles.menuOption}
+              onPress={handleConfirmOrder}
+            >
+              <Ionicons name="checkmark-circle-outline" size={24} color="#4CAF50" />
+              <Text style={styles.menuOptionText}>Confirm Order</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.menuOption}
+              onPress={handleSendReview}
+            >
+              <Ionicons name="star-outline" size={24} color="#FF9800" />
+              <Text style={styles.menuOptionText}>Send Review Request</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.menuOption}
+              onPress={handleAlmostThere}
+            >
+              <Ionicons name="bicycle-outline" size={24} color="#2196F3" />
+              <Text style={styles.menuOptionText}>Almost There</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -232,6 +543,10 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '600',
     color: 'white',
+    flex: 1,
+  },
+  menuButton: {
+    padding: 5,
   },
   content: {
     flex: 1,
@@ -440,16 +755,33 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   qrContainer: {
-    alignItems: 'center',
+    width: '100%',
     marginBottom: 20,
   },
   qrCode: {
-    width: 300,
-    height: 300,
-    backgroundColor: '#f0f0f0',
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 240,
+    height: 240,
     borderRadius: 10,
+  },
+  qrItem: {
+    alignItems: 'center',
+    marginHorizontal: 12,
+  },
+  qrLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 12,
+  },
+  qrScrollView: {
+    width: '100%',
+  },
+  qrScrollContent: {
+    alignItems: 'center',
+  },
+  qrSlide: {
+    width: 350,
+    alignItems: 'center',
   },
   qrText: {
     fontSize: 16,
@@ -484,5 +816,69 @@ const styles = StyleSheet.create({
   },
   inactiveModalDot: {
     backgroundColor: '#E0E0E0',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 40,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#F44336',
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  backButtonStyle: {
+    backgroundColor: '#FFBE0C',
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000',
+  },
+  menuModal: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 40,
+  },
+  menuTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#000',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  menuOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  menuOptionText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#000',
+    marginLeft: 12,
   },
 });
