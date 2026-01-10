@@ -1,22 +1,44 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { router, usePathname } from 'expo-router';
 import React, { useState } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 
 type TabName = 'home' | 'orders' | 'toggle' | 'analytics' | 'calculator';
 
-interface BottomNavigationProps {
-  activeTab?: TabName;
-  onTabPress?: (tab: TabName) => void;
-}
-
-export default function BottomNavigation({ activeTab = 'home', onTabPress }: BottomNavigationProps) {
+export default function BottomNavigation() {
   const [isToggleOn, setIsToggleOn] = useState(false);
+  const pathname = usePathname();
+
+  // Determine active tab based on current route
+  const getActiveTab = (): TabName => {
+    if (pathname === '/' || pathname === '/index') return 'home';
+    if (pathname === '/menu') return 'orders';
+    return 'home';
+  };
+
+  const activeTab = getActiveTab();
 
   const handleTabPress = (tab: TabName) => {
     if (tab === 'toggle') {
       setIsToggleOn(!isToggleOn);
+      return;
     }
-    onTabPress?.(tab);
+
+    // Navigate based on tab
+    switch (tab) {
+      case 'home':
+        router.push('/');
+        break;
+      case 'orders':
+        router.push('/menu');
+        break;
+      case 'analytics':
+        // TODO: Add analytics route
+        break;
+      case 'calculator':
+        // TODO: Add calculator route
+        break;
+    }
   };
 
   const renderIcon = (tab: TabName) => {

@@ -21,10 +21,11 @@ export default function RootLayout() {
 
         <Stack>
           <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="menu" options={{ headerShown: false }} />
           <Stack.Screen name="order-details" options={{ headerShown: false }} />
         </Stack>
 
-        <BottomNavigation activeTab="home" />
+        <BottomNavigation />
       </View>
     </ThemeProvider>
   );
