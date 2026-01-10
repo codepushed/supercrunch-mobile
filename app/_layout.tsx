@@ -1,3 +1,4 @@
+import BottomNavigation from '@/components/BottomNavigation';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -17,11 +18,13 @@ export default function RootLayout() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <View style={{ flex: 1 }}>
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-        
+
         <Stack>
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="order-details" options={{ headerShown: false }} />
         </Stack>
+
+        <BottomNavigation activeTab="home" />
       </View>
     </ThemeProvider>
   );
