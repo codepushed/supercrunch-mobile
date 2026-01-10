@@ -1,3 +1,4 @@
+import EditDishModal from '@/components/EditDishModal';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
@@ -56,6 +57,8 @@ const sampleMenuItems: MenuItem[] = [
 
 export default function MenuScreen() {
   const [menuItems, setMenuItems] = useState<MenuItem[]>(sampleMenuItems);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
 
   const toggleVisibility = (id: string) => {
     setMenuItems(items =>
@@ -66,7 +69,19 @@ export default function MenuScreen() {
   };
 
   const handleEdit = (id: string) => {
-    console.log('Edit item:', id);
+    const item = menuItems.find(i => i.id === id);
+    if (item) {
+      setSelectedItem(item);
+      setEditModalVisible(true);
+    }
+  };
+
+  const handleUpdateItem = (updatedItem: MenuItem) => {
+    setMenuItems(items =>
+      items.map(item =>
+        item.id === updatedItem.id ? updatedItem : item
+      )
+    );
   };
 
   const handleDelete = (id: string) => {
@@ -74,7 +89,24 @@ export default function MenuScreen() {
   };
 
   const handleAddNew = () => {
-    console.log('Add new item');
+    setSelectedItem(null);
+    setEditModalVisible(true);
+  };
+
+  const handleSaveItem = (item: MenuItem) => {
+    if (selectedItem) {
+      // Update existing item
+      setMenuItems(items =>
+        items.map(i => (i.id === item.id ? item : i))
+      );
+    } else {
+      // Add new item
+      const newItem = {
+        ...item,
+        id: Date.now().toString(),
+      };
+      setMenuItems(items => [...items, newItem]);
+    }
   };
 
   return (
@@ -91,9 +123,19 @@ export default function MenuScreen() {
 
         {/* Main Content Card */}
         <View style={styles.contentCard}>
-          {/* Title */}
-          <Text style={styles.pageTitle}>Customize menu</Text>
-          <Text style={styles.pageSubTitle}>You can edit, delete or add new items here</Text>
+          {/* Title Header with Add New Button */}
+          <View style={styles.titleHeader}>
+            <View>
+              <Text style={styles.pageTitle}>Customize menu</Text>
+              <Text style={styles.pageSubTitle}>You can edit, delete or add new items here</Text>
+            </View>
+            <TouchableOpacity style={styles.addNewButton} onPress={handleAddNew}>
+              <View style={styles.addNewIcon}>
+                <Ionicons name="add" size={16} color="#FFBE0C" />
+              </View>
+              <Text style={styles.addNewText}>Add New</Text>
+            </TouchableOpacity>
+          </View>
 
           {/* Menu Items List */}
           <View style={styles.menuList}>
@@ -158,13 +200,13 @@ export default function MenuScreen() {
           </View>
       </ScrollView>
 
-      {/* Floating Add New Button */}
-      <TouchableOpacity style={styles.addNewButton} onPress={handleAddNew}>
-        <View style={styles.addNewIcon}>
-          <Ionicons name="add" size={24} color="#FFBE0C" />
-        </View>
-        <Text style={styles.addNewText}>Add New</Text>
-      </TouchableOpacity>
+      {/* Edit Dish Modal */}
+      <EditDishModal
+        visible={editModalVisible}
+        item={selectedItem}
+        onClose={() => setEditModalVisible(false)}
+        onUpdate={handleSaveItem}
+      />
     </SafeAreaView>
   );
 }
@@ -202,6 +244,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '400',
     color: '#666666',
+  },
+  titleHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
     marginBottom: 20,
   },
   menuList: {
@@ -275,40 +322,32 @@ const styles = StyleSheet.create({
     marginLeft: 'auto',
   },
   productDescription: {
-    fontSize: 16,
-    color: '#FFBE0C',
+    fontSize: 15,
+    color: '#000',
     marginTop: 12,
-    fontWeight: '500',
+    fontWeight: '300',
   },
   addNewButton: {
-    position: 'absolute',
-    bottom: 20,
-    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFBE0C',
-    paddingRight: 8,
-    paddingLeft: 3,
-    paddingVertical: 3,
-    borderRadius: 30,
+    paddingRight: 12,
+    paddingLeft: 4,
+    paddingVertical: 4,
+    borderRadius: 24,
     gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
   },
   addNewIcon: {
-    width: 24,
-    height: 24,
-    borderRadius: 50,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: '#1A1A1A',
     justifyContent: 'center',
     alignItems: 'center',
   },
   addNewText: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
   },
 });
