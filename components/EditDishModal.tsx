@@ -1,3 +1,4 @@
+import { Dish } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
@@ -12,20 +13,11 @@ import {
   View,
 } from 'react-native';
 
-interface MenuItem {
-  id: string;
-  name: string;
-  price: number;
-  description: string;
-  image: any;
-  isVisible: boolean;
-}
-
 interface EditDishModalProps {
   visible: boolean;
-  item: MenuItem | null;
+  item: Dish | null;
   onClose: () => void;
-  onUpdate: (item: MenuItem) => void;
+  onUpdate: (item: Partial<Dish>) => void;
 }
 
 export default function EditDishModal({
@@ -38,7 +30,8 @@ export default function EditDishModal({
   const [price, setPrice] = useState('');
   const [description, setDescription] = useState('');
   const [isVisible, setIsVisible] = useState(true);
-  const [imageName, setImageName] = useState('Img.png');
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imageName, setImageName] = useState('');
 
   const isEditing = item !== null;
 
@@ -47,28 +40,29 @@ export default function EditDishModal({
       setName(item.name);
       setPrice(item.price.toString());
       setDescription(item.description);
-      setIsVisible(item.isVisible);
-      setImageName('Img.png');
+      setIsVisible(item.is_visible);
+      setImageUrl(item.image_url);
+      setImageName(item.image_url ? 'Current image' : '');
     } else {
       // Reset fields for new item
       setName('');
       setPrice('');
       setDescription('');
       setIsVisible(true);
+      setImageUrl(null);
       setImageName('');
     }
   }, [item]);
 
   const handleSave = () => {
-    const newItem: MenuItem = {
-      id: item?.id || '',
+    const dishData: Partial<Dish> = {
       name,
       price: parseFloat(price) || 0,
       description,
-      image: item?.image || require('../assets/v1/cardImage.png'),
-      isVisible,
+      image_url: imageUrl,
+      is_visible: isVisible,
     };
-    onUpdate(newItem);
+    onUpdate(dishData);
     onClose();
   };
 
@@ -97,9 +91,9 @@ export default function EditDishModal({
 
             {/* Image Preview */}
             <View style={styles.imagePreview}>
-              {item?.image ? (
+              {imageUrl ? (
                 <Image
-                  source={item.image}
+                  source={{ uri: imageUrl }}
                   style={styles.previewImage}
                   resizeMode="cover"
                 />

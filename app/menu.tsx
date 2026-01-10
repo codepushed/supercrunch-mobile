@@ -1,8 +1,19 @@
 import EditDishModal from '@/components/EditDishModal';
-import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import { Dish } from '@/lib/supabase';
 import {
+  createDish,
+  deleteDish,
+  fetchDishes,
+  toggleDishVisibility,
+  updateDish,
+} from '@/services/dishes';
+import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
   Image,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,61 +22,59 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-interface MenuItem {
-  id: string;
-  name: string;
-  price: number;
-  description: string;
-  image: any;
-  isVisible: boolean;
-}
-
-const sampleMenuItems: MenuItem[] = [
-  {
-    id: '1',
-    name: 'Potato Shots with Fiery Chilli Mayo',
-    price: 49.00,
-    description: 'A vibrant fusion of zesty citrus and cool blue refreshing taste that delights your senses...',
-    image: require('../assets/v1/cardImage.png'),
-    isVisible: true,
-  },
-  {
-    id: '2',
-    name: 'Potato Shots with Fiery Chilli Mayo',
-    price: 49.00,
-    description: 'A vibrant fusion of zesty citrus and cool blue refreshing taste that delights your senses...',
-    image: require('../assets/v1/cardImage.png'),
-    isVisible: true,
-  },
-  {
-    id: '3',
-    name: 'Potato Shots with Fiery Chilli Mayo',
-    price: 49.00,
-    description: 'A vibrant fusion of zesty citrus and cool blue refreshing taste that delights your senses...',
-    image: require('../assets/v1/cardImage.png'),
-    isVisible: false,
-  },
-  {
-    id: '4',
-    name: 'Potato Shots with Fiery Chilli Mayo',
-    price: 49.00,
-    description: 'A vibrant fusion of zesty citrus and cool blue refreshing taste that delights your senses...',
-    image: require('../assets/v1/cardImage.png'),
-    isVisible: true,
-  },
-];
-
 export default function MenuScreen() {
-  const [menuItems, setMenuItems] = useState<MenuItem[]>(sampleMenuItems);
+  const [menuItems, setMenuItems] = useState<Dish[]>([]);
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+  const [selectedItem, setSelectedItem] = useState<Dish | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const toggleVisibility = (id: string) => {
+  // Fetch dishes on mount
+  useEffect(() => {
+    loadDishes();
+  }, []);
+
+  const loadDishes = async () => {
+    try {
+      const { data, error } = await fetchDishes();
+      if (error) {
+        Alert.alert('Error', 'Failed to load menu items');
+        return;
+      }
+      setMenuItems(data || []);
+    } catch (err) {
+      console.error('Error loading dishes:', err);
+      Alert.alert('Error', 'Failed to load menu items');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadDishes();
+  };
+
+  const toggleVisibility = async (id: string) => {
+    const item = menuItems.find(i => i.id === id);
+    if (!item) return;
+
+    const newVisibility = !item.is_visible;
+
+    // Optimistic update
     setMenuItems(items =>
-      items.map(item =>
-        item.id === id ? { ...item, isVisible: !item.isVisible } : item
-      )
+      items.map(i => (i.id === id ? { ...i, is_visible: newVisibility } : i))
     );
+
+    const { error } = await toggleDishVisibility(id, newVisibility);
+    if (error) {
+      // Revert on error
+      setMenuItems(items =>
+        items.map(i => (i.id === id ? { ...i, is_visible: !newVisibility } : i))
+      );
+      Alert.alert('Error', 'Failed to update visibility');
+    }
   };
 
   const handleEdit = (id: string) => {
@@ -76,16 +85,26 @@ export default function MenuScreen() {
     }
   };
 
-  const handleUpdateItem = (updatedItem: MenuItem) => {
-    setMenuItems(items =>
-      items.map(item =>
-        item.id === updatedItem.id ? updatedItem : item
-      )
+  const handleDelete = async (id: string) => {
+    Alert.alert(
+      'Delete Dish',
+      'Are you sure you want to delete this dish?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const { success, error } = await deleteDish(id);
+            if (success) {
+              setMenuItems(items => items.filter(item => item.id !== id));
+            } else {
+              Alert.alert('Error', 'Failed to delete dish');
+            }
+          },
+        },
+      ]
     );
-  };
-
-  const handleDelete = (id: string) => {
-    setMenuItems(items => items.filter(item => item.id !== id));
   };
 
   const handleAddNew = () => {
@@ -93,25 +112,58 @@ export default function MenuScreen() {
     setEditModalVisible(true);
   };
 
-  const handleSaveItem = (item: MenuItem) => {
+  const handleSaveItem = async (dishData: Partial<Dish>) => {
     if (selectedItem) {
       // Update existing item
-      setMenuItems(items =>
-        items.map(i => (i.id === item.id ? item : i))
-      );
+      const { data, error } = await updateDish(selectedItem.id, {
+        name: dishData.name,
+        price: dishData.price,
+        description: dishData.description,
+        image_url: dishData.image_url,
+        is_visible: dishData.is_visible,
+      });
+
+      if (error) {
+        Alert.alert('Error', 'Failed to update dish');
+        return;
+      }
+
+      if (data) {
+        setMenuItems(items =>
+          items.map(i => (i.id === data.id ? data : i))
+        );
+      }
     } else {
       // Add new item
-      const newItem = {
-        ...item,
-        id: Date.now().toString(),
-      };
-      setMenuItems(items => [...items, newItem]);
+      const { data, error } = await createDish({
+        name: dishData.name || '',
+        price: dishData.price || 0,
+        description: dishData.description || '',
+        image_url: dishData.image_url || null,
+        tags: [],
+        is_visible: dishData.is_visible ?? true,
+      });
+
+      if (error) {
+        Alert.alert('Error', 'Failed to create dish');
+        return;
+      }
+
+      if (data) {
+        setMenuItems(items => [data, ...items]);
+      }
     }
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-      <ScrollView showsVerticalScrollIndicator={false} bounces={true}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        bounces={true}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
         {/* Header Section with Girl Image */}
         <View style={styles.headerContainer}>
           <Image
@@ -137,7 +189,24 @@ export default function MenuScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Loading State */}
+          {loading && (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#FFBE0C" />
+              <Text style={styles.loadingText}>Loading menu items...</Text>
+            </View>
+          )}
+
+          {/* Empty State */}
+          {!loading && menuItems.length === 0 && (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyText}>No menu items yet</Text>
+              <Text style={styles.emptySubtext}>Tap "Add New" to create your first dish</Text>
+            </View>
+          )}
+
           {/* Menu Items List */}
+          {!loading && menuItems.length > 0 && (
           <View style={styles.menuList}>
             {menuItems.map(item => (
               <View key={item.id} style={styles.menuCard}>
@@ -145,7 +214,11 @@ export default function MenuScreen() {
                   {/* Product Image */}
                   <View style={styles.imageContainer}>
                     <Image
-                      source={item.image}
+                      source={
+                        item.image_url
+                          ? { uri: item.image_url }
+                          : require('../assets/v1/cardImage.png')
+                      }
                       style={styles.productImage}
                       resizeMode="cover"
                     />
@@ -180,7 +253,7 @@ export default function MenuScreen() {
                         onPress={() => toggleVisibility(item.id)}
                       >
                         <Ionicons
-                          name={item.isVisible ? 'eye' : 'eye-off'}
+                          name={item.is_visible ? 'eye' : 'eye-off'}
                           size={28}
                           color="#FFBE0C"
                         />
@@ -196,6 +269,7 @@ export default function MenuScreen() {
               </View>
             ))}
           </View>
+          )}
 
           </View>
       </ScrollView>
@@ -349,5 +423,31 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '600',
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
   },
 });
