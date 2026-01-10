@@ -2,9 +2,10 @@ import { Order } from '@/lib/supabase';
 import { fetchPendingOrders } from '@/services/orders';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Dimensions,
   Image,
   RefreshControl,
@@ -25,6 +26,30 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isOnline, setIsOnline] = useState(true);
+  const [totalOrdersCount, setTotalOrdersCount] = useState(0);
+
+  // Breathing animation for the status dot
+  const breathingAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const breathing = Animated.loop(
+      Animated.sequence([
+        Animated.timing(breathingAnim, {
+          toValue: 0.4,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(breathingAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    breathing.start();
+    return () => breathing.stop();
+  }, [breathingAnim]);
 
   const handleScroll = (event: any) => {
     const scrollPosition = event.nativeEvent.contentOffset.x;
@@ -56,19 +81,23 @@ export default function HomeScreen() {
       if (fetchError) {
         console.error('❌ Error loading orders:', fetchError);
         setError('Failed to load orders');
+        setIsOnline(false);
         return;
       }
 
+      setIsOnline(true);
       if (data) {
         console.log('✅ Orders loaded successfully:', data.length, 'orders');
         console.log('📋 First order:', data[0]);
         setOrders(data);
+        setTotalOrdersCount(data.length);
       } else {
         console.log('⚠️ No data returned from Supabase');
       }
     } catch (err) {
       console.error('💥 Exception loading orders:', err);
       setError('Failed to load orders');
+      setIsOnline(false);
     } finally {
       console.log('🏁 Finished loading orders');
       setLoading(false);
@@ -114,6 +143,24 @@ export default function HomeScreen() {
               source={require('../assets/v1/splash.png')}
               style={styles.logo}
             />
+          </View>
+
+          {/* Orders Till Now Badge */}
+          <View style={styles.ordersBadgeContainer}>
+            <View style={styles.ordersBadge}>
+              <Animated.View
+                style={[
+                  styles.statusDot,
+                  {
+                    backgroundColor: isOnline ? '#4ADE80' : '#EF4444',
+                    opacity: breathingAnim,
+                  },
+                ]}
+              />
+              <Text style={styles.ordersBadgeText}>
+                {isOnline ? `${totalOrdersCount} Orders till now` : 'Offline'}
+              </Text>
+            </View>
           </View>
 
           {/* Check Orders Section */}
@@ -239,15 +286,15 @@ const styles = StyleSheet.create({
     marginTop: -30,
     paddingHorizontal: 20,
     paddingTop: 30,
-    minHeight: 800, // Increased height to ensure scrolling
-    paddingBottom: 50,
+    minHeight: 900, // Increased height to ensure scrolling
+    // paddingBottom: 50,
   },
   logoContainer: {
     alignItems: 'center',
-    // marginBottom: 40,
     width: '100%',
-    height: 200, // Fixed height instead of percentage
-    marginBottom: 20,
+    height: 160,
+    marginBottom: 10,
+    marginTop: -40,
   },
   superText: {
     fontSize: 48,
@@ -281,6 +328,31 @@ const styles = StyleSheet.create({
   logo: {
     width: '100%',
     height: '100%',
+  },
+  ordersBadgeContainer: {
+    alignItems: 'center',
+    marginBottom: 24,
+    marginTop: 20,
+  },
+  ordersBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#000000ff',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 25,
+    gap: 10,
+  },
+  statusDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  ordersBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '400',
+    fontFamily: 'Poppins',
   },
   carouselContainer: {
     marginBottom: 20,
