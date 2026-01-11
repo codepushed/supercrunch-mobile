@@ -67,6 +67,16 @@ export type OrderStatus =
   | 'delivered'
   | 'cancelled';
 
+// Device token for push notifications
+export interface DeviceToken {
+  id: string;
+  token: string;
+  device_name: string;
+  platform: 'ios' | 'android';
+  created_at: string;
+  last_active_at: string;
+}
+
 // Dish type for menu items (based on web project's dishes table)
 export interface Dish {
   id: string;

@@ -10,7 +10,10 @@
     "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.shubhamdebugss.supercrunchmobile"
+      "bundleIdentifier": "com.shubhamdebugss.supercrunchmobile",
+      "infoPlist": {
+        "UIBackgroundModes": ["remote-notification"]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +24,8 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.shubhamdebugss.supercrunchmobile"
+      "package": "com.shubhamdebugss.supercrunchmobile",
+      "googleServicesFile": "./android/app/google-services.json"
     },
     "web": {
       "output": "static",
@@ -38,6 +42,13 @@
           "dark": {
             "backgroundColor": "#FFBE0C"
           }
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#FFBE0C"
         }
       ]
     ],
