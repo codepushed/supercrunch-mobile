@@ -67,6 +67,19 @@ export type OrderStatus =
   | 'delivered'
   | 'cancelled';
 
+// Dish type for menu items (based on web project's dishes table)
+export interface Dish {
+  id: string;
+  name: string;
+  price: number;
+  description: string;
+  image_url: string | null;
+  tags: string[];
+  is_visible: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 // Helper function to format order status
 export const formatOrderStatus = (status: OrderStatus): string => {
   const statusMap: Record<OrderStatus, string> = {
