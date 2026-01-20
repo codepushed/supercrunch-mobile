@@ -26,6 +26,7 @@ export default function BottomNavigation() {
   const getActiveTab = (): TabName => {
     if (pathname === '/' || pathname === '/index') return 'home';
     if (pathname === '/menu') return 'orders';
+    if (pathname === '/expenses' || pathname === '/add-expense') return 'calculator';
     return 'home';
   };
 
@@ -65,7 +66,7 @@ export default function BottomNavigation() {
         // TODO: Add analytics route
         break;
       case 'calculator':
-        // TODO: Add calculator route
+        router.push('/expenses');
         break;
     }
   };
