@@ -19,6 +19,7 @@ import ConfettiCannon from 'react-native-confetti-cannon';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Asset } from 'expo-asset';
 import Share, { ShareSingleOptions, Social } from 'react-native-share';
+import instructions from '../instructions';
 
 type WhatsAppShareOptions = ShareSingleOptions & { whatsAppNumber?: string };
 
@@ -115,24 +116,19 @@ export default function OrderDetailsScreen() {
   const handleConfirmOrder = async () => {
     if (!order) return;
     setMenuModalVisible(false);
-    const message = "Order locked in! We've started prepping your yummy meal";
-    const imageAsset = require('../assets/quickies/confirm.png');
-    await shareImageWithMessage(order.customer_phone, message, imageAsset);
+    await shareImageWithMessage(order.customer_phone, instructions.confirm.message, instructions.confirm.image);
   };
 
   const handleSendReview = async () => {
     if (!order) return;
     setMenuModalVisible(false);
-    const message = "Your feedback is the secret ingredient that helps us get better. Tell us how your food was!";
-    const imageAsset = require('../assets/quickies/review.jpg');
-    await shareImageWithMessage(order.customer_phone, message, imageAsset);
+    await shareImageWithMessage(order.customer_phone, instructions.review.message, instructions.review.image);
   };
 
   const handleAlmostThere = () => {
     if (!order) return;
     setMenuModalVisible(false);
-    const message = "Your food is just a few bites away from reaching you";
-    sendWhatsAppMessage(order.customer_phone, message);
+    sendWhatsAppMessage(order.customer_phone, instructions.almostThere);
   };
   
   // Fetch order data from Supabase

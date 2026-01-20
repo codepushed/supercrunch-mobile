@@ -1,13 +1,26 @@
+import { fetchRestaurantStatus, updateRestaurantStatus } from '@/services/restaurant';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, usePathname } from 'expo-router';
-import React, { useState } from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 type TabName = 'home' | 'orders' | 'toggle' | 'analytics' | 'calculator';
 
 export default function BottomNavigation() {
   const [isToggleOn, setIsToggleOn] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const pathname = usePathname();
+
+  // Fetch restaurant status on mount
+  useEffect(() => {
+    const loadStatus = async () => {
+      setIsLoading(true);
+      const { data } = await fetchRestaurantStatus();
+      setIsToggleOn(data);
+      setIsLoading(false);
+    };
+    loadStatus();
+  }, []);
 
   // Determine active tab based on current route
   const getActiveTab = (): TabName => {
@@ -18,9 +31,25 @@ export default function BottomNavigation() {
 
   const activeTab = getActiveTab();
 
-  const handleTabPress = (tab: TabName) => {
+  const handleTabPress = async (tab: TabName) => {
     if (tab === 'toggle') {
-      setIsToggleOn(!isToggleOn);
+      if (isLoading) return; // Prevent multiple clicks while loading
+
+      setIsLoading(true);
+      const newStatus = !isToggleOn;
+
+      // Optimistically update UI
+      setIsToggleOn(newStatus);
+
+      const { data, error } = await updateRestaurantStatus(newStatus);
+
+      if (error) {
+        // Revert on error
+        setIsToggleOn(!newStatus);
+        alert('Failed to update restaurant status');
+      }
+
+      setIsLoading(false);
       return;
     }
 
@@ -84,9 +113,14 @@ export default function BottomNavigation() {
       <TouchableOpacity
         style={styles.toggleButton}
         onPress={() => handleTabPress('toggle')}
+        disabled={isLoading}
       >
-        <View style={[styles.toggleTrack, isToggleOn && styles.toggleTrackOn]}>
-          <View style={[styles.toggleThumb, isToggleOn && styles.toggleThumbOn]} />
+        <View style={[styles.toggleTrack, isToggleOn && styles.toggleTrackOn, isLoading && styles.toggleTrackLoading]}>
+          {isLoading ? (
+            <ActivityIndicator size="small" color="#FFBE0C" style={styles.toggleLoader} />
+          ) : (
+            <View style={[styles.toggleThumb, isToggleOn && styles.toggleThumbOn]} />
+          )}
         </View>
       </TouchableOpacity>
 
@@ -171,6 +205,14 @@ const styles = StyleSheet.create({
   },
   toggleThumbOn: {
     left: 40,
-    backgroundColor: '#FFBE0C',
+    backgroundColor: '#fff',
+  },
+  toggleTrackLoading: {
+    opacity: 0.7,
+  },
+  toggleLoader: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
   },
 });
