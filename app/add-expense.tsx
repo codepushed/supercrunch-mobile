@@ -17,11 +17,13 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SLIDER_WIDTH = SCREEN_WIDTH - 80;
 const MIN_AMOUNT = 0;
 const MAX_AMOUNT = 10000;
-const STEP = 50;
+const STEP = 5;
 
 export default function AddExpenseScreen() {
   const [name, setName] = useState('');
   const [amount, setAmount] = useState(100);
+  const [manualAmount, setManualAmount] = useState('');
+  const [showManualInput, setShowManualInput] = useState(false);
   const [category, setCategory] = useState<ExpenseCategory>('Ingredients');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
@@ -37,6 +39,17 @@ export default function AddExpenseScreen() {
     const offsetX = event.nativeEvent.contentOffset.x;
     const newAmount = Math.round((offsetX / SLIDER_WIDTH) * MAX_AMOUNT);
     handleAmountChange(newAmount);
+  };
+
+  const handleManualAmountSubmit = () => {
+    const parsedAmount = parseInt(manualAmount, 10);
+    if (!isNaN(parsedAmount) && parsedAmount > 0) {
+      setAmount(parsedAmount);
+      setShowManualInput(false);
+      setManualAmount('');
+    } else {
+      alert('Please enter a valid amount');
+    }
   };
 
   const handleNextStep = () => {
@@ -134,52 +147,104 @@ export default function AddExpenseScreen() {
             {/* Amount Section */}
             <Text style={styles.sectionLabel}>Amount</Text>
             <View style={styles.amountCard}>
-              {/* Amount Display */}
-              <View style={styles.amountDisplay}>
+              {/* Amount Display - Tappable to enter manually */}
+              <TouchableOpacity
+                style={styles.amountDisplay}
+                onPress={() => setShowManualInput(true)}
+              >
                 <Text style={styles.amountText}>₹{amount.toLocaleString('en-IN')}</Text>
-              </View>
+              </TouchableOpacity>
+
+              {/* Manual Input Modal */}
+              {showManualInput && (
+                <View style={styles.manualInputContainer}>
+                  <View style={styles.manualInputRow}>
+                    <Text style={styles.rupeePrefix}>₹</Text>
+                    <TextInput
+                      style={styles.manualInput}
+                      placeholder="Enter amount"
+                      placeholderTextColor="#999"
+                      keyboardType="numeric"
+                      value={manualAmount}
+                      onChangeText={setManualAmount}
+                      autoFocus
+                    />
+                  </View>
+                  <View style={styles.manualInputButtons}>
+                    <TouchableOpacity
+                      style={styles.manualCancelButton}
+                      onPress={() => {
+                        setShowManualInput(false);
+                        setManualAmount('');
+                      }}
+                    >
+                      <Text style={styles.manualCancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.manualConfirmButton}
+                      onPress={handleManualAmountSubmit}
+                    >
+                      <Text style={styles.manualConfirmText}>Confirm</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
 
               {/* Amount Ruler */}
-              <View style={styles.rulerContainer}>
-                <ScrollView
-                  ref={scrollViewRef}
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.rulerContent}
-                  onScroll={handleSliderScroll}
-                  scrollEventThrottle={16}
-                  snapToInterval={SLIDER_WIDTH / 20}
-                  decelerationRate="fast"
-                >
-                  <View style={styles.rulerPadding} />
-                  {renderAmountRuler()}
-                  <View style={styles.rulerPadding} />
-                </ScrollView>
-                <View style={styles.centerIndicator} />
-              </View>
+              {!showManualInput && (
+                <View style={styles.rulerContainer}>
+                  <ScrollView
+                    ref={scrollViewRef}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.rulerContent}
+                    onScroll={handleSliderScroll}
+                    scrollEventThrottle={16}
+                    snapToInterval={SLIDER_WIDTH / 20}
+                    decelerationRate="fast"
+                  >
+                    <View style={styles.rulerPadding} />
+                    {renderAmountRuler()}
+                    <View style={styles.rulerPadding} />
+                  </ScrollView>
+                  <View style={styles.centerIndicator} />
+                </View>
+              )}
 
               {/* Quick Amount Buttons */}
-              <View style={styles.quickAmounts}>
-                {[100, 500, 1000, 2000, 5000].map((val) => (
-                  <TouchableOpacity
-                    key={val}
-                    style={[
-                      styles.quickAmountButton,
-                      amount === val && styles.quickAmountButtonActive,
-                    ]}
-                    onPress={() => setAmount(val)}
-                  >
-                    <Text
+              {!showManualInput && (
+                <View style={styles.quickAmounts}>
+                  {[100, 500, 1000, 2000, 5000].map((val) => (
+                    <TouchableOpacity
+                      key={val}
                       style={[
-                        styles.quickAmountText,
-                        amount === val && styles.quickAmountTextActive,
+                        styles.quickAmountButton,
+                        amount === val && styles.quickAmountButtonActive,
                       ]}
+                      onPress={() => setAmount(val)}
                     >
-                      ₹{val}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+                      <Text
+                        style={[
+                          styles.quickAmountText,
+                          amount === val && styles.quickAmountTextActive,
+                        ]}
+                      >
+                        ₹{val}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {/* Tap to enter manually hint */}
+              {!showManualInput && (
+                <TouchableOpacity
+                  style={styles.manualHint}
+                  onPress={() => setShowManualInput(true)}
+                >
+                  <Text style={styles.manualHintText}>Tap amount to enter manually</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Recommendation Card */}
@@ -345,6 +410,67 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '700',
     color: '#fff',
+  },
+  manualInputContainer: {
+    width: '100%',
+    marginBottom: 16,
+  },
+  manualInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  rupeePrefix: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    marginRight: 8,
+  },
+  manualInput: {
+    flex: 1,
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    paddingVertical: 14,
+  },
+  manualInputButtons: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  manualCancelButton: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  manualCancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  manualConfirmButton: {
+    flex: 1,
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  manualConfirmText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  manualHint: {
+    marginTop: 12,
+  },
+  manualHintText: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
   },
   rulerContainer: {
     width: '100%',
