@@ -76,35 +76,20 @@ export const fetchPendingOrders = async (): Promise<{
   error: any;
 }> => {
   try {
-    console.log('🔍 Fetching pending orders from Supabase...');
-    console.log('📡 Supabase URL:', process.env.EXPO_PUBLIC_SUPABASE_URL);
-    console.log('🔑 API Key exists:', !!process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY);
-    
     const { data, error } = await supabase
       .from('orders')
       .select('*')
       .in('status', ['pending', 'confirmed', 'preparing'])
       .order('created_at', { ascending: false });
 
-    console.log('📊 Query result:', { 
-      dataCount: data?.length, 
-      hasError: !!error,
-      errorDetails: error 
-    });
-
     if (error) {
-      console.error('❌ Error fetching pending orders:', error);
+      console.error('Error fetching pending orders:', error);
       return { data: null, error };
-    }
-
-    console.log('✅ Pending orders fetched successfully:', data?.length || 0, 'orders');
-    if (data && data.length > 0) {
-      console.log('📋 Sample order:', JSON.stringify(data[0], null, 2));
     }
 
     return { data: data as Order[], error: null };
   } catch (error) {
-    console.error('💥 Exception fetching pending orders:', error);
+    console.error('Exception fetching pending orders:', error);
     return { data: null, error };
   }
 };

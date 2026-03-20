@@ -1,32 +1,43 @@
 import BottomNavigation from '@/components/BottomNavigation';
+import { ToastProvider } from '@/contexts/ToastContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useOrderNotifications } from '@/hooks/useOrderNotifications';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View } from 'react-native';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
 export const unstable_settings = {
-  // Ensures that reloading on `/modal` keeps a back button present.
   initialRouteName: 'index',
 };
 
+function AppContent() {
+  // Initialize order notifications (vibration + toast)
+  useOrderNotifications();
+
+  return (
+    <View style={{ flex: 1 }}>
+      <Stack>
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="menu" options={{ headerShown: false }} />
+        <Stack.Screen name="order-details" options={{ headerShown: false }} />
+        <Stack.Screen name="expenses" options={{ headerShown: false }} />
+        <Stack.Screen name="add-expense" options={{ headerShown: false }} />
+      </Stack>
+      <BottomNavigation />
+    </View>
+  );
+}
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  
+
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <View style={{ flex: 1 }}>
+      <ToastProvider>
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-
-        <Stack>
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen name="menu" options={{ headerShown: false }} />
-          <Stack.Screen name="order-details" options={{ headerShown: false }} />
-        </Stack>
-
-        <BottomNavigation />
-      </View>
+        <AppContent />
+      </ToastProvider>
     </ThemeProvider>
   );
 }

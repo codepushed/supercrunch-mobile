@@ -79,7 +79,7 @@ export default function HomeScreen() {
       console.log('📦 Fetch result:', { data, error: fetchError });
       
       if (fetchError) {
-        console.error('❌ Error loading orders:', fetchError);
+        console.error('Error loading orders:', fetchError);
         setError('Failed to load orders');
         setIsOnline(false);
         return;
@@ -92,7 +92,7 @@ export default function HomeScreen() {
         setOrders(data);
         setTotalOrdersCount(data.length);
       } else {
-        console.log('⚠️ No data returned from Supabase');
+        console.log(' No data returned from Supabase');
       }
     } catch (err) {
       console.error('💥 Exception loading orders:', err);
@@ -179,7 +179,7 @@ export default function HomeScreen() {
             {/* Error State */}
             {error && !loading && (
               <View style={styles.emptyContainer}>
-                <Text style={styles.errorText}>⚠️ {error}</Text>
+                <Text style={styles.errorText}>{error}</Text>
                 <TouchableOpacity onPress={loadOrders} style={styles.retryButton}>
                   <Text style={styles.retryButtonText}>Retry</Text>
                 </TouchableOpacity>
@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: '#F44336',
+    color: '#666',
     marginBottom: 16,
     textAlign: 'center',
   },

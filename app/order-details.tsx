@@ -1,6 +1,7 @@
 import { Order, formatOrderStatus, getStatusColor } from '@/lib/supabase';
 import { fetchOrderById, updateOrderStatus } from '@/services/orders';
 import { Ionicons } from '@expo/vector-icons';
+import { Asset } from 'expo-asset';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -8,16 +9,15 @@ import {
   Image,
   Linking,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  Platform,
 } from 'react-native';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Asset } from 'expo-asset';
 import Share, { ShareSingleOptions, Social } from 'react-native-share';
 import instructions from '../instructions';
 
@@ -243,7 +243,7 @@ export default function OrderDetailsScreen() {
           <Text style={styles.headerTitle}>Order Details</Text>
         </View>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>⚠️ {error || 'Order not found'}</Text>
+          <Text style={styles.errorText}>{error || 'Order not found'}</Text>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButtonStyle}>
             <Text style={styles.backButtonText}>Go Back</Text>
           </TouchableOpacity>
@@ -833,7 +833,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: '#F44336',
+    color: '#666',
     marginBottom: 24,
     textAlign: 'center',
   },

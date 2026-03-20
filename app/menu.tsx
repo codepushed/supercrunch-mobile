@@ -185,7 +185,7 @@ export default function MenuScreen() {
               <View style={styles.addNewIcon}>
                 <Ionicons name="add" size={16} color="#FFBE0C" />
               </View>
-              <Text style={styles.addNewText}>Add New</Text>
+              <Text style={styles.addNewText}>Add</Text>
             </TouchableOpacity>
           </View>
 

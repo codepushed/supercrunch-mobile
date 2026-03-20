@@ -1,8 +1,9 @@
 import { fetchRestaurantStatus, updateRestaurantStatus } from '@/services/restaurant';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, usePathname } from 'expo-router';
+import { Calculator, Home, Soup, TrendingUp } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type TabName = 'home' | 'orders' | 'toggle' | 'analytics' | 'calculator';
 
@@ -10,6 +11,7 @@ export default function BottomNavigation() {
   const [isToggleOn, setIsToggleOn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const pathname = usePathname();
+  const insets = useSafeAreaInsets();
 
   // Fetch restaurant status on mount
   useEffect(() => {
@@ -72,22 +74,24 @@ export default function BottomNavigation() {
   };
 
   const renderIcon = (tab: TabName) => {
+    const iconProps = { size: 24, color: '#FFFFFF', strokeWidth: 2 };
+
     switch (tab) {
       case 'home':
-        return <Ionicons name="home-outline" size={28} color="#FFFFFF" />;
+        return <Home {...iconProps} />;
       case 'orders':
-        return <MaterialCommunityIcons name="noodles" size={28} color="#FFFFFF" />;
+        return <Soup {...iconProps} />;
       case 'analytics':
-        return <Ionicons name="trending-up" size={28} color="#FFFFFF" />;
+        return <TrendingUp {...iconProps} />;
       case 'calculator':
-        return <MaterialCommunityIcons name="calculator-variant-outline" size={26} color="#FFFFFF" />;
+        return <Calculator {...iconProps} />;
       default:
         return null;
     }
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 16) }]}>
       {/* Home */}
       <TouchableOpacity
         style={styles.tabButton}
@@ -156,17 +160,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     alignItems: 'center',
     backgroundColor: '#FFBE0C',
-    paddingVertical: 16,
+    paddingTop: 16,
     paddingHorizontal: 20,
-    paddingBottom: 30,
   },
   tabButton: {
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 10,
   },
   iconContainer: {
-    width: 56,
-    height: 56,
+    width: 45,
+    height: 45,
     borderRadius: 28,
     backgroundColor: '#1A1A1A',
     justifyContent: 'center',
@@ -184,6 +188,7 @@ const styles = StyleSheet.create({
   toggleButton: {
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 10,
   },
   toggleTrack: {
     width: 80,
